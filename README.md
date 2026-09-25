@@ -1,23 +1,21 @@
-# 🏠 House Price Prediction
+# House Price Prediction
 
-An end-to-end Machine Learning project for predicting house sale prices using Linear Regression.
+An end-to-end machine learning project for predicting house sale prices using Linear Regression, with a Streamlit application for interactive predictions.
 
-## 📌 Project Overview
+## Project Overview
 
-The goal of this project is to build a Machine Learning model that predicts the selling price of a house based on its features.
+The goal of this project is to build a machine learning model that predicts the selling price of a house based on its features. The project covers the full workflow: exploratory data analysis, preprocessing, feature engineering, model training and evaluation, saving the trained pipeline, and deployment through a Streamlit app.
 
-This project follows a complete Machine Learning workflow, starting from raw data analysis and preprocessing to model training, evaluation, saving the model, and deploying it using Streamlit.
+## Machine Learning Problem
 
-## 🤖 Machine Learning Problem
+- **Learning type:** Supervised learning
+- **Problem type:** Regression
+- **Target variable:** `SalePrice`
+- **Final model:** Linear Regression, trained on a log-transformed target
 
-- **Learning Type:** Supervised Learning
-- **Problem Type:** Regression
-- **Target Variable:** `SalePrice`
-- **Final Model:** Linear Regression
+## Dataset
 
-## 📊 Dataset
-
-The project uses the **House Prices - Advanced Regression Techniques** dataset from Kaggle.
+The project uses the House Prices - Advanced Regression Techniques dataset from Kaggle.
 
 Dataset files:
 
@@ -26,82 +24,56 @@ Dataset files:
 - `sample_submission.csv`
 - `data_description.txt`
 
-The original dataset contains 1,460 training samples and 80 input features, with `SalePrice` as the target variable.
+The training data contains 1,460 samples and 80 input features, with `SalePrice` as the target variable. Only `train.csv` is used in the analysis and modeling notebook.
 
-## 🔍 Exploratory Data Analysis
+## Exploratory Data Analysis
 
-Several EDA techniques were used to understand the relationship between the house features and the target variable.
-
-Important observations included:
+The notebook examines the distribution of the target variable, its relationship with individual features, and correlations between numerical features. Key observations:
 
 - `SalePrice` is right-skewed.
 - `OverallQual` has a strong positive relationship with `SalePrice`.
 - `GrLivArea` also has a strong positive relationship with `SalePrice`.
-- Features such as `GarageCars`, `GarageArea`, `TotalBsmtSF`, and `1stFlrSF` also show strong relationships with the target.
-- Some features show high correlation with each other, which can indicate possible multicollinearity.
+- `GarageCars`, `GarageArea`, `TotalBsmtSF`, and `1stFlrSF` show strong correlations with the target.
+- Some features are correlated with each other, indicating possible multicollinearity.
+- `SalePrice` also varies noticeably by `Neighborhood`.
 
-## 🧹 Data Preprocessing
+## Data Preprocessing
 
-The preprocessing pipeline handles:
+The preprocessing is implemented as a scikit-learn pipeline (`ColumnTransformer`) with separate handling for numerical and categorical features:
 
-- Missing values
-- Numerical features
-- Categorical features
-- One-hot encoding
-- Features where missing values represent the absence of something
+- **Numerical features:** missing values imputed with the median.
+- **Categorical features (regular):** missing values imputed with the most frequent value, then one-hot encoded.
+- **Categorical features where missing means "absence" of something** (e.g. no pool, no garage): imputed with the constant value `"None"`, then one-hot encoded. This applies to `PoolQC`, `MiscFeature`, `Alley`, `Fence`, `FireplaceQu`, `GarageType`, `GarageFinish`, `GarageQual`, `GarageCond`, `BsmtQual`, `BsmtCond`, `BsmtExposure`, `BsmtFinType1`, and `BsmtFinType2`.
+- **`LotFrontage`:** handled separately with a custom transformer that fills missing values using the median `LotFrontage` within the same `Neighborhood`.
 
-Examples include:
+## Feature Engineering
 
-- Basement
-- Garage
-- Pool
-- Fence
-- Alley
-- Fireplace
+Two additional features are created inside the pipeline via a custom transformer:
 
-### LotFrontage
-
-Missing `LotFrontage` values are handled using the median value within the property's `Neighborhood`.
-
-## ⚙️ Feature Engineering
-
-Two additional features were created:
-
-### HouseAge
-
-```text
-HouseAge = YrSold - YearBuilt
 ```
-
-### TotalSF
-
-```text
+HouseAge = YrSold - YearBuilt
 TotalSF = TotalBsmtSF + 1stFlrSF + 2ndFlrSF
 ```
 
-These features are generated automatically inside the preprocessing pipeline.
+## Model Training
 
-## 📈 Model Training
+The model is Linear Regression, trained inside a single scikit-learn `Pipeline` that combines feature engineering, preprocessing, and the estimator.
 
-The project uses Linear Regression.
-
-A baseline model was first trained using the original `SalePrice` target.
-
-After evaluation, a second experiment was performed using a logarithmic transformation of the target:
+A baseline model was first trained directly on `SalePrice`. A second version was then trained on a log-transformed target:
 
 ```python
 y_train_log = np.log1p(y_train)
 ```
 
-The predictions were converted back to the original price scale using:
+Predictions are converted back to the original price scale with:
 
 ```python
 predicted_price = np.expm1(prediction_log)
 ```
 
-The log-target approach achieved better performance on the held-out test set and was selected as the final model.
+The log-target version performed better on the held-out test set and was selected as the final model.
 
-## 📏 Final Model Performance
+## Final Model Performance
 
 | Metric | Score |
 |---|---|
@@ -109,48 +81,40 @@ The log-target approach achieved better performance on the held-out test set and
 | RMSE | 26,045.47 |
 | R² | 0.9116 |
 
-| | R² |
+### Train vs test performance
+
+| Dataset | R² |
 |---|---|
 | Training | 0.9151 |
 | Test | 0.9116 |
 
-## 🔎 Error Analysis
+The small gap between training and test R² indicates that the model generalizes reasonably well to unseen data.
 
-The model predictions were compared with the actual house prices.
+## Error Analysis
 
-The analysis showed that the model performs well for many observations but has larger errors for some extreme house prices.
+Predictions were compared against actual prices to inspect the largest errors. The model performs well overall but has larger errors on some extreme prices: certain high-priced houses were underpredicted, and certain lower-priced houses were overpredicted. This reflects a known limitation of a linear model on a dataset with nonlinear relationships.
 
-In particular, some high-priced houses were underpredicted, while some lower-priced houses were overpredicted.
+## Saved Model
 
-This highlights one of the limitations of using a linear model for a dataset containing complex and potentially nonlinear relationships.
+The trained pipeline (preprocessing + feature engineering + Linear Regression) is saved with `joblib` to:
 
-## 💾 Saved Model
-
-The final trained pipeline is saved as:
-
-```text
+```
 models/house_price_model.pkl
 ```
 
-The saved pipeline contains the preprocessing steps and the trained Linear Regression model.
+## Streamlit Application
 
-## 🌐 Streamlit Application
-
-The trained model is deployed using Streamlit.
-
-The application allows the user to enter house characteristics and receive an estimated house price.
+The trained pipeline is served through a Streamlit app (`app.py`). The app collects house characteristics across four tabs (basics and location, areas and rooms, basement and garage, exterior and sale), builds a single-row DataFrame matching the training schema, and passes it directly into the saved pipeline, which performs all required preprocessing before generating a prediction.
 
 Run the application with:
 
-```bash
+```
 streamlit run app/app.py
 ```
 
-The application automatically performs the required preprocessing before generating the prediction.
+## Project Structure
 
-## 📁 Project Structure
-
-```text
+```
 House-price-project/
 │
 ├── app/
@@ -158,10 +122,10 @@ House-price-project/
 │
 ├── data/
 │   └── raw/
-│       ├── train.csv
-│       ├── test.csv
+│       ├── data_description.txt
 │       ├── sample_submission.csv
-│       └── data_description.txt
+│       ├── test.csv
+│       └── train.csv
 │
 ├── models/
 │   └── house_price_model.pkl
@@ -170,73 +134,49 @@ House-price-project/
 │   └── house_price_analysis.ipynb
 │
 ├── .gitignore
-└── README.md
+├── README.md
+└── requirements.txt
 ```
 
-## 🛠️ Technologies Used
+## Technologies Used
 
 - Python
 - Pandas
 - NumPy
 - Scikit-learn
 - Matplotlib
-- Seaborn
 - Joblib
 - Streamlit
 - Jupyter Notebook
 
-## 🚀 How to Run
+## How to Run
 
-### 1. Clone the repository
+1. Clone the repository
 
-```bash
+```
 git clone <repository-url>
 ```
 
-### 2. Create a virtual environment
+2. Install dependencies
 
-```bash
-python -m venv .venv
 ```
-
-### 3. Activate the environment
-
-Windows:
-
-```bash
-.venv\Scripts\activate
-```
-
-macOS/Linux:
-
-```bash
-source .venv/bin/activate
-```
-
-### 4. Install dependencies
-
-```bash
 pip install -r requirements.txt
 ```
 
-### 5. Run the Streamlit application
+3. Run the Streamlit application
 
-```bash
+```
 streamlit run app/app.py
 ```
 
-## 📌 Future Improvements
+## Future Improvements
 
-Possible future improvements include:
-
-- Experimenting with regularized Linear Regression such as Ridge and Lasso.
+- Experimenting with regularized linear models such as Ridge and Lasso.
 - Additional feature engineering.
 - More detailed residual analysis.
 - Better input validation in the Streamlit application.
 - Improving the visual design of the application.
 
-## ⚠️ Disclaimer
+## Disclaimer
 
-This project is an educational Machine Learning project.
-
-The predicted house price is an estimate generated from historical data and should not be considered a professional real-estate valuation.
+This project is an educational machine learning project. The predicted house price is an estimate generated from historical data and should not be considered a professional real-estate valuation.
