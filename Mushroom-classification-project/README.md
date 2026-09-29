@@ -126,7 +126,15 @@ The final model is saved as a single scikit-learn `Pipeline` combining the `Mush
 
 ## Streamlit Application
 
-A Streamlit application is used to serve the saved pipeline, allowing a user to select a mushroom's characteristics and receive a predicted class (edible or poisonous) along with the predicted probability.
+The trained pipeline is served through a Streamlit app (`app.py`), which imports the same `MushroomPreprocessor` used during training so the raw input is handled consistently with the notebook.
+
+The app presents a dropdown for each of the dataset's 21 categorical features (cap shape, odor, gill size, stalk root, etc.), builds a single-row DataFrame matching the original column names, and passes it directly into the saved pipeline. It displays:
+
+- The predicted class (edible or poisonous)
+- The model's confidence in that prediction
+- The full probability breakdown for both classes
+
+The app also shows a warning that the model is for educational purposes only and must not be used to judge whether a real mushroom is safe to eat.
 
 ### Run the application
 
