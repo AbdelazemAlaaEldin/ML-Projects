@@ -12,6 +12,8 @@ The purpose of this repository is to build practical intuition for machine learn
 |---|---|---|
 | [House-price-project](./House-price-project) | Linear Regression | Predicting house sale prices |
 | [Heart-disease-project](./Heart-disease-project) | Logistic Regression | Predicting presence of heart disease |
+| [Customer-Churn-project](./Customer-Churn-project) | K-Nearest Neighbors | Predicting customer churn |
+| [Mushroom-classification-project](./Mushroom-classification-project) | Naive Bayes | Classifying mushrooms as edible or poisonous |
 
 More projects will be added here as new algorithms are covered.
 
