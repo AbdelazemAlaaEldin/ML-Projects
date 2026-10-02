@@ -1,4 +1,4 @@
-# Mushroom Classification using Naive Bayes
+# 🍄Mushroom Classification using Naive Bayes
 
 ## Project Overview
 

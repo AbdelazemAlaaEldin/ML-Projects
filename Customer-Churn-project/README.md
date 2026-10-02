@@ -1,4 +1,4 @@
-# Customer Churn Prediction using KNN
+# 📊Customer Churn Prediction using KNN
 
 ## Project Overview
 

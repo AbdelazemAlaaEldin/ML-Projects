@@ -1,4 +1,4 @@
-# Loan Approval Prediction using Decision Tree
+# 🏦Loan Approval Prediction using Decision Tree
 
 ## Project Overview
 
