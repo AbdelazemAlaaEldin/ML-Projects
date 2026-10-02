@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-This project builds an end-to-end machine learning solution for predicting the presence of heart disease from clinical patient features.
+This project builds an end-to-end machine learning solution to predict the presence of heart disease from clinical patient features.
 
-The project uses Logistic Regression as the classification algorithm and includes data analysis, preprocessing, feature representation experiments, hyperparameter tuning, evaluation, error analysis, model saving, and Streamlit deployment.
+The project uses Logistic Regression for binary classification. The workflow covers data understanding, cleaning, exploratory data analysis, preprocessing, hyperparameter tuning, threshold-free evaluation with bootstrap confidence intervals, error analysis, model saving, and Streamlit deployment.
 
-> **Disclaimer:** This application is for educational purposes only and is not a medical diagnostic tool.
+> **Disclaimer:** This project is for educational purposes only and is not a medical diagnostic tool.
 
 ## Problem Statement
 
@@ -19,103 +19,131 @@ This is a:
 
 The target variable represents whether heart disease is present (`1`) or absent (`0`).
 
+## Machine Learning Problem
+
+- **Learning type:** Supervised learning
+- **Problem type:** Binary classification
+- **Algorithm:** Logistic Regression
+- **Target variable:** `target`
+
+Target classes:
+
+- `0` → No heart disease
+- `1` → Heart disease
+
 ## Dataset
 
-The dataset is the processed Cleveland heart disease dataset, downloaded via `kagglehub` from the `mdzawharulislam/uci-processedclevelanddata` dataset and stored locally as `heart_disease_data.csv`.
+The project uses the processed Cleveland heart disease dataset, downloaded via `kagglehub` from the `mdzawharulislam/uci-processedclevelanddata` dataset and stored locally as `heart_disease_data.csv`.
 
-It contains:
+The dataset contains:
 
-- 303 observations
-- 13 input features
-- 1 target variable, with no missing values
+- 303 rows and 13 input features before cleaning
+- No missing values
+- One exact duplicate row
 
 ### Features
 
 `age`, `sex`, `cp`, `trestbps`, `chol`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `slope`, `ca`, `thal`
 
-### Target
+### Known data quirk
 
-`target`
+In the original UCI documentation, `ca` should only take values 0–3 and `thal` should take the values 3, 6, or 7. In this version of the dataset, `ca` includes a small number of `4`s (4 rows) and `thal` includes a small number of `0`s (2 rows), which most likely correspond to the original dataset's missing-value markers having been remapped into the valid-looking range. Given how few rows are affected, no special handling was applied: since both `ca` and `thal` are treated as categorical features, one-hot encoding naturally absorbs them as just another category.
 
-- `0` → No heart disease (138 cases)
-- `1` → Heart disease (165 cases)
+## Data Cleaning
+
+The one duplicate row is dropped, leaving 302 rows for analysis and modeling. This step was missing from the project's first version.
 
 ## Exploratory Data Analysis
 
 The dataset was explored using:
 
-- Target distribution analysis
-- Numerical feature distributions
-- Categorical feature distributions, including their relationship with the target
-- Boxplots of numerical features against the target
+- Target distribution (54.5% heart disease vs. 45.5% no heart disease — close to balanced)
+- Boxplots of the five numerical features (`age`, `trestbps`, `chol`, `thalach`, `oldpeak`) against the target
+- Cross-tabulations of the categorical features (`cp`, `exang`, `slope`, `ca`, `thal`, `sex`) against the target
 - A correlation heatmap across all features
 
-The correlation and distribution analysis were used as exploratory tools, not as the only basis for feature selection.
+Notable observations:
+
+- `cp` (chest pain type), `exang` (exercise-induced angina), `oldpeak`, `thalach`, and `ca` all show a clear split between the two classes.
+- Patients with no chest pain (`cp = 0`) have a *lower* observed disease rate (27%) than patients with any type of chest pain (69–82%). This is counter-intuitive at first glance but clinically sensible: chest pain is often what brings a patient in for evaluation in the first place.
+- `thalach` (max heart rate) is higher, and `oldpeak` (ST depression) is lower, in patients with heart disease.
+- `cp` has the strongest correlation with the target among all features (≈ 0.43), followed by `exang` (≈ -0.44), `oldpeak` (≈ -0.43), `thalach` (≈ 0.42), `ca` (≈ -0.41), and `slope` (≈ 0.34).
 
 ## Train/Test Split
 
-The dataset was split into:
+The dataset is split into:
 
-- 80% training data
-- 20% test data
+- 80% training data (241 patients)
+- 20% test data (61 patients)
 
-A stratified split was used to preserve the target class distribution.
+A stratified split is used to preserve the target class distribution.
 
-## Data Preprocessing
+## Preprocessing
 
-Preprocessing is implemented with a scikit-learn `ColumnTransformer`:
+Preprocessing is implemented with a scikit-learn `ColumnTransformer`, combined with the model inside a single `Pipeline` so every training and evaluation step — including cross-validation — fits preprocessing fresh on each training fold, avoiding leakage from validation data into the transformers.
 
 - **Numerical features** (`age`, `trestbps`, `chol`, `thalach`, `oldpeak`) are standardized using `StandardScaler`.
-- **Categorical features** (`sex`, `cp`, `fbs`, `restecg`, `exang`, `slope`, `thal`, plus `ca` in the final configuration) are transformed using `OneHotEncoder`.
-
-Preprocessing and the model are combined inside a single scikit-learn `Pipeline`, so preprocessing and prediction are handled consistently for both training and inference.
+- **Categorical features** (`sex`, `cp`, `fbs`, `restecg`, `exang`, `slope`, `ca`, `thal`) are transformed using `OneHotEncoder`.
 
 ## Model Development
 
-The model was developed iteratively, moving from a baseline to a tuned final version:
+The model was developed iteratively:
 
-1. **Baseline Logistic Regression** on the standard preprocessing (`ca` treated as numerical): accuracy 80.33%, ROC-AUC 88.42%.
-2. **Cross-validated hyperparameter search** over the regularization parameter `C`, using 5-fold stratified cross-validation.
-3. **Feature representation experiment:** `ca` was tested as both a numerical and a categorical feature; treating it as categorical produced a better validation ROC-AUC.
-4. **Grid search** over `C` values `[0.01, 0.05, 0.1, 0.2, 0.5, 1, 2]` combined with both preprocessing variants (`ca` numerical vs. categorical), using 5-fold stratified cross-validation optimized for ROC-AUC.
+1. **Baseline Logistic Regression** (`C = 1.0`), evaluated with 5-fold stratified cross-validation on the training set: accuracy 85.90% ± 4.00%, ROC-AUC 90.81% ± 3.47%.
+2. **Hyperparameter tuning:** a `GridSearchCV` over `C ∈ {0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5}`, using the same 5-fold stratified cross-validation, scored on ROC-AUC.
 
-The grid search selected `C = 0.2` with `ca` treated as categorical, with a cross-validated ROC-AUC of 89.82%, as the best configuration.
+The search selected `C = 0.2`, with a cross-validated ROC-AUC of 91.22%.
 
 ## Final Model Performance
 
-The final model was evaluated on the held-out test split:
+The tuned model was evaluated once, on the held-out test set, after hyperparameter selection was finalized using only cross-validation on the training set:
 
 | Metric | Score |
 |---|---:|
-| Accuracy | 88.52% |
-| Precision | 86.11% |
-| Recall | 93.94% |
-| F1-Score | 89.86% |
-| ROC-AUC | 91.13% |
+| Accuracy | 86.89% |
+| Precision | 85.71% |
+| Recall | 90.91% |
+| F1-Score | 88.24% |
+| ROC-AUC | 89.61% |
 
 ### Confusion Matrix
 
 - True Negatives: 23
 - False Positives: 5
-- False Negatives: 2
-- True Positives: 31
+- False Negatives: 3
+- True Positives: 30
 
-The model correctly classified 54 out of 61 test samples.
+The model correctly classified 53 out of 61 test samples.
 
-> The same test split was used throughout iterative model development (baseline, C=0.1 experiment, and final grid search evaluation), so it should not be treated as a completely untouched final holdout set.
+### Bootstrap Confidence Intervals
+
+95% bootstrap confidence intervals on the test set:
+
+| Metric | 95% Bootstrap CI |
+|---|---|
+| Accuracy | [0.787, 0.951] |
+| Precision | [0.727, 0.969] |
+| Recall | [0.800, 1.000] |
+| ROC-AUC | [0.811, 0.968] |
 
 ## Error Analysis
 
-The final model's errors on the test set consisted of:
+The final model misclassified 8 of the 61 test patients.
 
-- 5 false positives (predicted heart disease, actual negative)
-- 2 false negatives (predicted no heart disease, actual positive)
+- Four of the eight errors are confident false positives (predicted probability above 0.7 for a patient without heart disease): patients 193, 266, 301, and 285. All four share `exang = 0` and `thal = 2`, suggesting the model leans heavily on this specific combination as a disease signal, even when other features (such as `ca`) point the other way for some of these patients.
+- The remaining errors are a mix of lower-confidence false positives and false negatives, without as clear a shared pattern.
 
-This breakdown was used to evaluate the model beyond a single accuracy figure, since it shows the model is somewhat more prone to false positives than false negatives at the default 0.5 threshold.
+### Feature Importance
+
+The largest logistic regression coefficients (on standardized/encoded features) include `cp_0` (strongly negative — no chest pain lowers predicted risk), `ca_0` (positive — no colored vessels, consistent with the `cp` pattern above), `thal_2` (positive) and `thal_3` (negative), `oldpeak` (negative), and `sex` (male lowers predicted risk relative to female in this dataset). These align with the relationships seen during EDA.
+
+## Machine Learning Pipeline
+
+The final model is saved as a single scikit-learn `Pipeline` combining the `ColumnTransformer` and the tuned Logistic Regression model, so preprocessing and prediction are handled consistently for both training and inference. The saved pipeline was verified to produce identical predictions after being reloaded with `joblib`.
 
 ## Model Saving
 
-The final trained pipeline (preprocessing and Logistic Regression) is saved with `joblib` to:
+The final trained pipeline is saved with `joblib` to:
 
 ```
 models/heart_disease_logistic_pipeline.pkl
@@ -194,13 +222,16 @@ pip install -r requirements.txt
 streamlit run app/app.py
 ```
 
-## Future Improvements
+4. Run the notebook
 
-- Evaluating the model on a separate, completely untouched holdout set.
-- More extensive hyperparameter tuning.
-- Comparing Logistic Regression with additional classification algorithms.
-- Improving the Streamlit interface.
-- Adding more detailed visualizations.
+Open `notebooks/heart_disease_analysis.ipynb`. It downloads the dataset using `kagglehub`, performs the complete analysis, tunes and evaluates the model, and regenerates the saved model artifact.
+
+## Key Findings and Limitations
+
+- Removing the single duplicate row and selecting the hyperparameter purely from cross-validation (never touching the test set until final evaluation) gives a test ROC-AUC of 89.6%, slightly lower than this project's first version (91.1%). This is expected and considered a more trustworthy number: the earlier version reused the same test split throughout development, which risks a mild, hard-to-detect optimistic bias.
+- `ca` and `thal` contain a handful of rows with values outside their originally documented ranges, most likely remapped missing-value markers from the source data; treating both as categorical absorbs this without special handling, given how few rows are affected.
+- The model's most confident mistakes (4 of 8 test errors) all share the same `exang = 0`, `thal = 2` combination, suggesting a specific blind spot rather than generally noisy predictions.
+- With only 302 patients and 61 in the test set, metric estimates carry real uncertainty, reflected in the bootstrap confidence intervals above.
 
 ## Disclaimer
 

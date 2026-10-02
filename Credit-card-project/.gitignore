@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# Raw data (downloaded with kagglehub inside the notebook)
+data/raw/*
+!data/raw/.gitkeep
+
+# Secrets
+.env
+.streamlit/secrets.toml
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

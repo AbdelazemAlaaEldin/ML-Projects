@@ -6,4 +6,3 @@ seaborn
 joblib
 streamlit
 jupyter
-kagglehub

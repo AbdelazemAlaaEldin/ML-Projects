@@ -1,15 +1,28 @@
-import streamlit as st
-import pandas as pd
+from pathlib import Path
+
 import joblib
+import pandas as pd
+import streamlit as st
 
 
 # =========================
-# Load Model
+# Project paths
 # =========================
 
-MODEL_PATH = "models/knn_churn_pipeline.pkl"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+MODEL_PATH = PROJECT_ROOT / "models" / "knn_churn_pipeline.pkl"
 
-model = joblib.load(MODEL_PATH)
+
+# =========================
+# Load model
+# =========================
+
+@st.cache_resource
+def load_model():
+    return joblib.load(MODEL_PATH)
+
+
+model = load_model()
 
 
 # =========================
@@ -18,7 +31,6 @@ model = joblib.load(MODEL_PATH)
 
 st.set_page_config(
     page_title="Customer Churn Prediction",
-    page_icon="📊",
     layout="centered"
 )
 
@@ -27,11 +39,16 @@ st.set_page_config(
 # Title
 # =========================
 
-st.title("📊 Customer Churn Prediction")
+st.title("📊Customer Churn Prediction")
 
 st.write(
     "Predict whether a customer is likely to churn "
     "based on their service and account information."
+)
+
+st.warning(
+    "Educational project only. This is a screening aid trained on a public "
+    "dataset, not a guaranteed prediction of real customer behavior."
 )
 
 
@@ -149,40 +166,34 @@ total_charges = st.number_input(
 
 
 # =========================
-# Create Input DataFrame
-# =========================
-
-input_data = pd.DataFrame({
-    "gender": [gender],
-    "SeniorCitizen": [senior_citizen],
-    "Partner": [partner],
-    "Dependents": [dependents],
-    "tenure": [tenure],
-    "PhoneService": [phone_service],
-    "MultipleLines": [multiple_lines],
-    "InternetService": [internet_service],
-    "OnlineSecurity": [online_security],
-    "OnlineBackup": [online_backup],
-    "DeviceProtection": [device_protection],
-    "TechSupport": [tech_support],
-    "StreamingTV": [streaming_tv],
-    "StreamingMovies": [streaming_movies],
-    "Contract": [contract],
-    "PaperlessBilling": [paperless_billing],
-    "PaymentMethod": [payment_method],
-    "MonthlyCharges": [monthly_charges],
-    "TotalCharges": [total_charges]
-})
-
-
-# =========================
 # Prediction
 # =========================
 
-if st.button("🔮 Predict Churn"):
+if st.button("Predict Churn", use_container_width=True):
+
+    input_data = pd.DataFrame({
+        "gender": [gender],
+        "SeniorCitizen": [senior_citizen],
+        "Partner": [partner],
+        "Dependents": [dependents],
+        "tenure": [tenure],
+        "PhoneService": [phone_service],
+        "MultipleLines": [multiple_lines],
+        "InternetService": [internet_service],
+        "OnlineSecurity": [online_security],
+        "OnlineBackup": [online_backup],
+        "DeviceProtection": [device_protection],
+        "TechSupport": [tech_support],
+        "StreamingTV": [streaming_tv],
+        "StreamingMovies": [streaming_movies],
+        "Contract": [contract],
+        "PaperlessBilling": [paperless_billing],
+        "PaymentMethod": [payment_method],
+        "MonthlyCharges": [monthly_charges],
+        "TotalCharges": [total_charges]
+    })
 
     prediction = model.predict(input_data)[0]
-
     probability = model.predict_proba(input_data)[0]
 
     # Classes are ["No", "Yes"]
@@ -191,14 +202,35 @@ if st.button("🔮 Predict Churn"):
     st.subheader("Prediction Result")
 
     if prediction == "Yes":
-
-        st.error("⚠️ Customer is predicted to Churn")
-
+        st.error("Customer is predicted to churn")
     else:
-
-        st.success("✅ Customer is predicted to Stay")
+        st.success("Customer is predicted to stay")
 
     st.metric(
         "Churn Probability",
         f"{churn_probability * 100:.2f}%"
+    )
+
+    if tenure > 20 and prediction == "No":
+        st.caption(
+            "Note: in testing, the model's most common mistake was missing "
+            "churn among longer-tenured customers like this one. Treat a "
+            "'not flagged' result with some caution for this profile."
+        )
+
+with st.expander("About this model"):
+    st.markdown(
+        """
+- K-Nearest Neighbors (k=30, Euclidean distance, uniform weighting) with
+  scaling and one-hot encoding inside one pipeline; hyperparameters tuned
+  jointly with 5-fold cross-validation.
+- Test set (1,409 customers): accuracy about 0.79, recall about 0.55
+  (95% CI 0.51-0.60), ROC-AUC about 0.83 (0.81-0.85).
+- The model tends to catch short-tenure, higher-paying churners well, but
+  often misses longer-tenured customers who still leave: missed churners
+  had about 25 months of tenure on average, versus about 10 months for
+  correctly caught churners.
+- Both missed churners and false alarms are concentrated among
+  month-to-month contracts, the most volatile customer segment overall.
+"""
     )
